@@ -1,0 +1,8 @@
+<resources>
+    <style name="Theme.StickerBox" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">#426448</item>
+        <item name="colorSecondary">#53634F</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+    <string-array name="xposed_scope"><item>com.google.android.inputmethod.latin</item></string-array>
+</resources>

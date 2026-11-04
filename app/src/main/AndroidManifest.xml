@@ -1,0 +1,25 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <queries><package android:name="com.google.android.inputmethod.latin" /></queries>
+    <application android:allowBackup="false" android:label="Gboard StickerBox"
+        android:icon="@drawable/ic_stickerbox" android:theme="@style/Theme.StickerBox"
+        android:supportsRtl="true">
+        <meta-data android:name="xposedmodule" android:value="true" />
+        <meta-data android:name="xposeddescription" android:value="Local stickers for Gboard. No input collection or network access." />
+        <meta-data android:name="xposedminversion" android:value="82" />
+        <meta-data android:name="xposedscope" android:resource="@array/xposed_scope" />
+        <activity android:name=".ui.MainActivity" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity android:name=".ui.ShareActivity" android:exported="false" />
+        <provider android:name=".data.BridgeProvider" android:authorities="io.github.stickerbox.bridge"
+            android:exported="true" android:grantUriPermissions="false" />
+        <provider android:name="androidx.core.content.FileProvider"
+            android:authorities="io.github.stickerbox.files" android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
+        </provider>
+    </application>
+</manifest>
