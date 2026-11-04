@@ -112,8 +112,10 @@ class MainActivity:AppCompatActivity() {
         busy=true;status.text="正在处理，请保持管理 App 打开…"
         lifecycleScope.launch {
             val message=try {withContext(Dispatchers.IO){block()}}
-            catch(_:Exception){"处理失败或部分导入，请查看日志；已入库文件保留"}
+            catch(e:kotlinx.coroutines.CancellationException){throw e}
+            catch(_:Exception){withContext(Dispatchers.IO){runCatching{db.event("OPERATION_FAILED")}};"处理失败或部分导入，请查看日志；已入库文件保留"}
             finally{busy=false}
+            if(isFinishing || isDestroyed)return@launch
             refresh();MaterialAlertDialogBuilder(this@MainActivity).setMessage(message).setPositiveButton("确定",null).show()
         }
     }

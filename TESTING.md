@@ -4,7 +4,9 @@
 
 本文件随源码交付。**GitHub Actions 的具体 commit、绿色结果与报告才是编译/单元测试/Lint 通过的证据**；工作流文件存在不代表已运行。当前会话未连接任何 Android/Root 设备，所有以下设备场景均为待验证。
 
-CI 工作流 `.github/workflows/android.yml` 执行：结构检查 → Debug 构建 → JUnit → Android Lint → 上传交付物及报告。失败时查看 Actions 日志，不生成伪 APK。测试失败不能被忽略。
+CI 工作流 `.github/workflows/android.yml` 执行：结构检查 → Debug 构建 → JUnit → Android Lint → 最终 Manifest / APK 签名 / 打包入口检查 → 上传交付物及报告。失败时查看 Actions 日志，不生成伪 APK。测试失败不能被忽略。交付包的 BUILD-RESULTS.md 记录该次构建 commit、运行链接和单元测试计数。
+
+另一个 `emulator-smoke` job 会在 Android 16 / API 36 x86_64 模拟器运行三个 instrumentation 测试：管理 App 启动；SQLite 索引、伪扩展名导入、去重、搜索、备份与恢复；GIF 原始字节与系统动画解码、生成导出 URI 的本 UID 可读性。它不验证不同 UID 的授权，也没有 Root、LSPosed、Gboard 或微信。报告和截图在 `android16-emulator-reports`；必须检查 job 实际结果，不能因配置存在就声称通过。测试仅用于可丢弃模拟器，会清空测试表情库。
 
 单元测试 `MediaRulesTest`：七项 JUnit 测试覆盖媒体魔数、截断/伪装输入、ZIP 路径穿越、真实解压字节上限、MIME 匹配及不静默扁平化 GIF。它们不验证 Android 解码器、Binder 权限、数据库或 Gboard 运行时。
 
@@ -20,7 +22,7 @@ CI 工作流 `.github/workflows/android.yml` 执行：结构检查 → Debug 构
 2. 检查原 GIF/WebP 摘要和动画；HEIC 必须显示转换结果或可理解的失败，不得伪装成功。
 3. ZIP 含路径穿越、绝对路径、大文件、超过 512 MiB 的展开数据、超过 10,000 条目及嵌套 ZIP，应限额拒绝且无越界写入。导入可部分成功。
 4. 导入 1,000 张，滑动、换页、搜索名称/分类、切换收藏/最近；使用 Android Studio Profiler 验证内存、耗时、旋转和进程重启。
-5. 改名、分组、排序、删除、收藏；备份后在空库恢复，核对内容和 metadata。最近时间当前不恢复。
+5. 改名、分组、排序、删除、收藏；备份后在空库恢复，核对内容、收藏、分类、排序和最近使用时间。
 6. 外部专属目录不可用时应失败而不丢失原库；切换只影响新文件。
 
 ## Hook 与降级

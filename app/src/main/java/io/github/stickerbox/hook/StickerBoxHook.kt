@@ -166,7 +166,11 @@ class StickerBoxHook:IXposedHookLoadPackage {
                 val enabled=try{call(service,"config")?.getBoolean("enabled")==true}catch(_:Throwable){false}
                 main.post{if(!enabled){close();toolbar.visibility=View.GONE}else toolbar.visibility=View.VISIBLE}
             }}}
-            service.contentResolver.registerContentObserver(BASE,true,observer!!)
+            runCatching{service.contentResolver.registerContentObserver(BASE,true,observer!!)}
+            root.addOnAttachStateChangeListener(object:View.OnAttachStateChangeListener {
+                override fun onViewAttachedToWindow(v:View)=Unit
+                override fun onViewDetachedFromWindow(v:View){destroy()}
+            })
         }
         private fun load() {
             val token=++generation

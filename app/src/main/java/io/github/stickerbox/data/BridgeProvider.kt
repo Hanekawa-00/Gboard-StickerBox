@@ -63,6 +63,7 @@ class BridgeProvider : ContentProvider() {
                     ctx.grantUriPermission(GBOARD,prepared.first,Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     if(target.isNotEmpty())ctx.grantUriPermission(target,prepared.first,Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     val shareIntent=Intent(ctx,ShareActivity::class.java).putExtra("id",row.id)
+                        .setData(Uri.parse("stickerbox://share/${row.id}"))
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     val pending=PendingIntent.getActivity(ctx,row.id.hashCode(),shareIntent,PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
                     Bundle().apply {putString("uri",prepared.first.toString());putString("mime",prepared.second);putParcelable("share",pending)}

@@ -59,6 +59,7 @@ class LibraryDb private constructor(context: Context) : SQLiteOpenHelper(context
         },"id=?",arrayOf(id))
     }
     fun recent(id:String) { writableDatabase.update("stickers",ContentValues().apply { put("recent",System.currentTimeMillis()) },"id=?",arrayOf(id)) }
+    fun restoreRecent(id:String,time:Long) { writableDatabase.update("stickers",ContentValues().apply{put("recent",time.coerceIn(0,System.currentTimeMillis()))},"id=?",arrayOf(id)) }
     fun remove(id:String) {writableDatabase.delete("stickers","id=?",arrayOf(id))}
     fun categories(): List<String> = readableDatabase.rawQuery("SELECT DISTINCT category FROM stickers ORDER BY category",null).use { c -> buildList { while(c.moveToNext()) add(c.getString(0)) } }
     fun count() = readableDatabase.rawQuery("SELECT COUNT(*) FROM stickers",null).use { it.moveToFirst();it.getInt(0) }

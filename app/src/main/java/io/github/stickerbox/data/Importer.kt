@@ -58,11 +58,12 @@ class Importer(private val context:Context) {
         ZipInputStream(input.buffered()).use { zip ->
             while(true) {
                 val entry=zip.nextEntry ?: break
-                next()
+                if(entry.name!="library.json")next()
                 // Never extract by archive path; names are labels only. Read all bytes under budgets.
                 require(MediaRules.safeEntry(entry.name)){"Unsafe ZIP entry"}
                 if(entry.isDirectory){zip.closeEntry();continue}
                 if(entry.name=="library.json") {
+                    require(manifest==null){"Duplicate backup manifest"}
                     val out=java.io.ByteArrayOutputStream()
                     account(MediaRules.copyBounded(zip,out,4L*1024*1024))
                     manifest=out.toString("UTF-8")
@@ -129,6 +130,7 @@ class Importer(private val context:Context) {
                 val id=item.getString("id")
                 val existing=db.get(id) ?: continue
                 db.edit(id,item.optString("name",existing.name),item.optString("group",existing.group),item.optLong("rank",existing.rank),item.optBoolean("favorite",false))
+                db.restoreRecent(id,item.optLong("recent",0))
             }
             db.writableDatabase.setTransactionSuccessful()
         } finally {db.writableDatabase.endTransaction()}

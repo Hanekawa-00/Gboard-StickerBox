@@ -4,7 +4,7 @@
 
 ## 构建与下载
 
-GitHub → Actions → Android Debug → 选择最近成功的运行 → Artifacts → `Gboard-StickerBox-debug`。其中包含 Debug APK、源码 ZIP、README、研究报告和测试步骤。`verification-reports` 包含实际的测试与 Lint 报告。只有工作流绿色成功才表示编译和自动检查通过。可以在 Actions 页面手动 Run workflow。
+GitHub → Actions → Android Debug → 选择最近成功的运行 → Artifacts → `Gboard-StickerBox-debug`。其中包含 Debug APK、源码 ZIP、README、研究报告、测试步骤和带 commit 的 BUILD-RESULTS.md。`verification-reports` 包含实际的测试与 Lint 报告，`android16-emulator-reports` 包含管理 App 的模拟器测试报告和截图。请分别检查 build / emulator-smoke job 的结果。可以在 Actions 页面手动 Run workflow。
 
 本地要求 JDK 17、Android SDK Platform 36；Android Studio 打开根目录后同步 Gradle。项目含标准 Gradle 8.13 wrapper。执行：
 
@@ -45,7 +45,7 @@ Debug APK：`app/build/outputs/apk/debug/app-debug.apk`。CI 的 debug 签名可
 - Hook 面板支持分类、收藏和最近；**Hook 内文字搜索尚未实现**，可通过“管理 / 搜索”进入管理 App 搜索再分享，不会劫持原键盘按键。
 - Framework Hook 是版本无关的入口尝试，不是所有浮动、分离、横屏键盘布局的保证。结构检查失败时不注入。
 - 单文件 32 MiB，单次导入解压后 512 MiB，10,000 个条目（含目录），库容量 10,000 张。ZIP64 由 Java 解压支持，但仍受此限额；不递归解压 ZIP。导入可部分成功，请查看结果；保持 App 前台，旋转/退出可能中断导入。
-- 备份恢复保留收藏/分类/排序，**目前不恢复最近使用时间**。数据库不支持降级迁移。
+- 备份恢复保留收藏、分类、排序和最近使用时间。数据库不支持降级迁移。
 - 导出 URI 在进程存活时 10 分钟撤销读取授权；进程被杀时下次准备分享才清理陈旧导出。此限制见 TESTING.md。
 - 没有 FunBox 在线分类/搜索/下载功能，不复制专有实现。当前执行环境恢复后未保留原 APK，两个数据 ZIP 也未收到，实际 FunBox 格式映射仍待附件分析。
 
