@@ -41,6 +41,7 @@ class KeyboardMountTest {
         overlay.visibility=View.VISIBLE
         root.measure(View.MeasureSpec.makeMeasureSpec(1080,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(2400,View.MeasureSpec.EXACTLY))
         root.layout(0,0,1080,2400)
+        assertEquals("Opening the panel must not expand the keyboard to full screen",540,area.height)
         val now=android.os.SystemClock.uptimeMillis()
         for(action in listOf(android.view.MotionEvent.ACTION_DOWN,android.view.MotionEvent.ACTION_UP)) {
             val event=android.view.MotionEvent.obtain(now,now+action,action,300f,(area.top+200).toFloat(),0)

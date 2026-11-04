@@ -10,8 +10,10 @@ import java.util.ArrayDeque
  * Does not read text, content descriptions, or keyboard keys. Unknown structures are rejected.
  */
 object KeyboardMount {
-    class Mount internal constructor(private val strip:View,private val overlay:View) {
+    class Mount internal constructor(private val strip:View,private val overlay:View,
+        private val column:LinearLayout,private val listener:View.OnLayoutChangeListener) {
         fun remove() {
+            column.removeOnLayoutChangeListener(listener)
             (overlay.parent as? ViewGroup)?.removeView(overlay)
             (strip.parent as? ViewGroup)?.removeView(strip)
         }
@@ -40,13 +42,27 @@ object KeyboardMount {
             // Original views and their parents stay intact. The opaque panel is a sibling overlay.
             overlay.isClickable=true // Consume empty-panel touches instead of hitting keys underneath.
             column.addView(strip,0,LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,stripHeight))
-            area.addView(overlay,FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT).apply{topMargin=stripHeight})
+            // MATCH_PARENT under a WRAP_CONTENT FrameLayout can expand to the full screen.
+            // Size against the native column instead, so showing the panel never grows the IME.
+            area.addView(overlay,FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,0)
+                .apply{topMargin=stripHeight})
         } catch(t:Throwable) {
             (overlay.parent as? ViewGroup)?.removeView(overlay)
             (strip.parent as? ViewGroup)?.removeView(strip)
             throw t
         }
-        return Mount(strip,overlay)
+        fun resize() {
+            val usedStrip=if(strip.visibility==View.GONE)0 else stripHeight
+            val height=(column.height-usedStrip).coerceAtLeast(0)
+            val top=column.top+usedStrip
+            val params=overlay.layoutParams as FrameLayout.LayoutParams
+            if(params.height!=height || params.topMargin!=top) {
+                params.height=height;params.topMargin=top;overlay.layoutParams=params
+            }
+        }
+        val listener=View.OnLayoutChangeListener{_,_,_,_,_,_,_,_,_->resize()}
+        column.addOnLayoutChangeListener(listener)
+        resize()
+        return Mount(strip,overlay,column,listener)
     }
 }

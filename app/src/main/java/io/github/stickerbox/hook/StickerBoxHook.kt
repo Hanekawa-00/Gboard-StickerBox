@@ -110,7 +110,10 @@ class StickerBoxHook:IXposedHookLoadPackage {
                 if(!config.getBoolean("enabled")) {status(service,"模块已加载；管理 App 中的面板开关关闭；Gboard $version");return@execute}
                 main.post {
                     try {
-                        if(panels[service]?.get()?.let{it.original===original && !it.disposed}==true)return@post
+                        if(panels[service]?.get()?.let{it.original===original && !it.disposed}==true) {
+                            status(service,"已注入键盘内容区域；Gboard $version；Android ${android.os.Build.VERSION.SDK_INT}")
+                            return@post
+                        }
                         val guard=service.getSharedPreferences("stickerbox_guard",0)
                         val key="$version/${config.getLong("revision",0)}"
                         if(key in blocked)return@post
@@ -203,7 +206,7 @@ class StickerBoxHook:IXposedHookLoadPackage {
             mount=KeyboardMount.attach(original,root,body,dp(40)) ?: return false
             observer=object:ContentObserver(main){override fun onChange(selfChange:Boolean){worker.execute{
                 val enabled=try{call(service,"config")?.getBoolean("enabled")==true}catch(_:Throwable){false}
-                main.post{if(!enabled){close();toolbar.visibility=View.GONE}else toolbar.visibility=View.VISIBLE}
+                main.post{if(!enabled){close();root.visibility=View.GONE}else root.visibility=View.VISIBLE}
             }}}
             runCatching{service.contentResolver.registerContentObserver(BASE,true,observer!!)}
             root.addOnAttachStateChangeListener(object:View.OnAttachStateChangeListener {
