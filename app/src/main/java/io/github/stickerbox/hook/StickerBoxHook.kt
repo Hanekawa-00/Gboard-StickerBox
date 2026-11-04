@@ -191,10 +191,18 @@ class StickerBoxHook:IXposedHookLoadPackage {
             }
         }
         private fun choose(values:List<String>,picked:(String)->Unit) {
-            val column=LinearLayout(service).apply{orientation=LinearLayout.VERTICAL}
-            val scroll=ScrollView(service).apply{addView(column)}
-            val w=PopupWindow(scroll,dp(240),dp(260),false).apply{setBackgroundDrawable(ColorDrawable(Color.WHITE));isOutsideTouchable=true}
-            for(value in values)column.addView(button(value){w.dismiss();picked(value)})
+            val list=ListView(service)
+            list.adapter=object:BaseAdapter(){
+                override fun getCount()=values.size
+                override fun getItem(p:Int)=values[p]
+                override fun getItemId(p:Int)=p.toLong()
+                override fun getView(p:Int,reused:View?,parent:ViewGroup?):View = ((reused as? TextView) ?: TextView(service).apply{
+                    setTextColor(Color.BLACK);gravity=Gravity.CENTER_VERTICAL;setPadding(dp(12),0,dp(12),0)
+                    layoutParams=AbsListView.LayoutParams(-1,dp(48))
+                }).apply{text=values[p]}
+            }
+            val w=PopupWindow(list,dp(240),dp(260),false).apply{setBackgroundDrawable(ColorDrawable(Color.WHITE));isOutsideTouchable=true}
+            list.setOnItemClickListener{_,_,position,_->w.dismiss();picked(values[position])}
             popup?.dismiss();popup=w;w.showAtLocation(root,Gravity.CENTER,0,0)
         }
         private fun preview(row:JSONObject) {

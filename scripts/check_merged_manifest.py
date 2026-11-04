@@ -9,7 +9,8 @@ private_receiver='io.github.stickerbox.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION'
 assert set(permissions)<={private_receiver}, 'Unexpected merged permissions: '+str(permissions)
 if private_receiver in permissions:
     definition=next(p for p in r.findall('permission') if p.get(ns+'name')==private_receiver)
-    assert definition.get(ns+'protectionLevel')=='signature'
+    protection=definition.get(ns+'protectionLevel')
+    assert protection=='signature' or int(protection,0)==2
 metadata={m.get(ns+'name'):m for m in r.find('application').findall('meta-data')}
 assert metadata['xposedmodule'].get(ns+'value')=='true'
 fp=next(p for p in r.find('application').findall('provider') if p.get(ns+'authorities')=='io.github.stickerbox.files')

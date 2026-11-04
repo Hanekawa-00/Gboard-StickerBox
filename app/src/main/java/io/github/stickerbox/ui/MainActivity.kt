@@ -184,7 +184,10 @@ class MainActivity:AppCompatActivity() {
         val categoryField=field("分类（输入新名称即可创建）",s.group)
         val rank=field("排序数字（越小越靠前）",s.rank.toString()).apply{inputType=android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_SIGNED}
         MaterialAlertDialogBuilder(this).setTitle("编辑贴纸").setView(column).setNegativeButton("取消",null).setPositiveButton("保存"){_,_->
-            operation{db.edit(s.id,name.text.toString(),categoryField.text.toString().ifBlank{"未分类"},rank.text.toString().toLongOrNull() ?: s.rank,s.favorite);"已保存"}
+            val newName=name.text.toString()
+            val newCategory=categoryField.text.toString().ifBlank{"未分类"}
+            val newRank=rank.text.toString().toLongOrNull() ?: s.rank
+            operation{db.edit(s.id,newName,newCategory,newRank,s.favorite);"已保存"}
         }.show()
     }
     private inner class Holder(val box:LinearLayout):RecyclerView.ViewHolder(box) {
