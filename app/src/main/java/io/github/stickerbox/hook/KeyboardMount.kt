@@ -38,6 +38,7 @@ object KeyboardMount {
         if(strip.parent!=null || overlay.parent!=null)return null
         try {
             // Original views and their parents stay intact. The opaque panel is a sibling overlay.
+            overlay.isClickable=true // Consume empty-panel touches instead of hitting keys underneath.
             column.addView(strip,0,LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,stripHeight))
             area.addView(overlay,FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT).apply{topMargin=stripHeight})

@@ -36,6 +36,17 @@ class KeyboardMountTest {
         assertEquals(2400,area.bottom);assertEquals(540,area.height);assertEquals(40,strip.height)
         assertSame(column,strip.parent);assertSame(area,overlay.parent)
         assertEquals(40,(overlay.layoutParams as FrameLayout.LayoutParams).topMargin)
+        var nativeTouches=0
+        native.setOnTouchListener{_,_->nativeTouches++;true}
+        overlay.visibility=View.VISIBLE
+        root.measure(View.MeasureSpec.makeMeasureSpec(1080,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(2400,View.MeasureSpec.EXACTLY))
+        root.layout(0,0,1080,2400)
+        val now=android.os.SystemClock.uptimeMillis()
+        for(action in listOf(android.view.MotionEvent.ACTION_DOWN,android.view.MotionEvent.ACTION_UP)) {
+            val event=android.view.MotionEvent.obtain(now,now+action,action,300f,(area.top+200).toFloat(),0)
+            try{assertTrue(root.dispatchTouchEvent(event))}finally{event.recycle()}
+        }
+        assertEquals("Panel blank space must not type into the real keyboard",0,nativeTouches)
         mount!!.remove()
         assertEquals(1,column.childCount);assertSame(native,column.getChildAt(0));assertEquals(1,area.childCount)
     }
