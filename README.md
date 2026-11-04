@@ -15,6 +15,12 @@ python3 scripts/check_project.py app/build/outputs/apk/debug/app-debug.apk
 
 Debug APK：`app/build/outputs/apk/debug/app-debug.apk`。CI 的 debug 签名可能随运行变化：覆盖安装失败时先备份，再卸载重装。不要向陌生人提供私钥。此项目不需要仓库 Secrets。
 
+## v0.2 修订
+
+修复全屏 InputView 外层工具栏可能落到可见键盘之外的问题：现在只在唯一匹配的 `keyboard-base-area` 区域内安装，保留原生视图父子关系；未知或歧义结构不注入。设置页通过独立只读 ping 区分模块未加载、开关关闭、通信失败和布局未匹配。提供一个仅包含固定文本的引导 URI 读取授权，帮助 Android 11+ 的 Gboard 获得模块包可见性；重启接收器仅重建这项授权，不采集任何输入或数据。
+
+升级 CI Debug APK 如遇签名不一致，先在旧版备份 ZIP，再卸载安装并恢复；不要先清除数据。
+
 ## 安装与启用
 
 1. 安装 APK，打开 StickerBox，用“导入图片 / ZIP”多选文件，或选择“导入文件夹”。
@@ -43,7 +49,7 @@ Debug APK：`app/build/outputs/apk/debug/app-debug.apk`。CI 的 debug 签名可
 
 - 尚无 Android 16 Root/LSPosed 真机测试、未取得用户当前 Gboard APK；不能声称兼容已验证。
 - Hook 面板支持分类、收藏和最近；**Hook 内文字搜索尚未实现**，可通过“管理 / 搜索”进入管理 App 搜索再分享，不会劫持原键盘按键。
-- Framework Hook 是版本无关的入口尝试，不是所有浮动、分离、横屏键盘布局的保证。结构检查失败时不注入。
+- Framework Hook 加结构标记检测是入口尝试，不是所有浮动、分离、横屏键盘布局的保证。结构检查失败时不注入。
 - 单文件 32 MiB，单次导入解压后 512 MiB，10,000 个条目（含目录），库容量 10,000 张。ZIP64 由 Java 解压支持，但仍受此限额；不递归解压 ZIP。导入可部分成功，请查看结果；保持 App 前台，旋转/退出可能中断导入。
 - 备份恢复保留收藏、分类、排序和最近使用时间。数据库不支持降级迁移。
 - 导出 URI 在进程存活时 10 分钟撤销读取授权；进程被杀时下次准备分享才清理陈旧导出。此限制见 TESTING.md。

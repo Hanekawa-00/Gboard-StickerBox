@@ -26,6 +26,7 @@ import com.google.android.material.button.MaterialButton
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.switchmaterial.SwitchMaterial
 import io.github.stickerbox.data.BridgeProvider
+import io.github.stickerbox.data.BridgeBootstrap
 import io.github.stickerbox.data.Importer
 import io.github.stickerbox.data.LibraryDb
 import io.github.stickerbox.data.Sticker
@@ -58,6 +59,11 @@ class MainActivity:AppCompatActivity() {
     }
     override fun onCreate(savedInstanceState:Bundle?) {
         super.onCreate(savedInstanceState)
+        val settings=getSharedPreferences("settings",0)
+        val installedVersion=packageManager.getPackageInfo(packageName,0).longVersionCode
+        if(settings.getLong("module_version",0)!=installedVersion)settings.edit()
+            .putLong("module_version",installedVersion).putLong("revision",System.currentTimeMillis()).apply()
+        lifecycleScope.launch(Dispatchers.IO){runCatching{BridgeBootstrap.allowGboard(this@MainActivity)}}
         loader=ImageLoader.Builder(this).components{add(ImageDecoderDecoder.Factory())}.crossfade(false).build()
         root=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(dp(12),0,dp(12),0)}
         setContentView(root)
@@ -154,9 +160,19 @@ class MainActivity:AppCompatActivity() {
             action("Gboard 应用信息"){
                 startActivity(Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,android.net.Uri.parse("package:com.google.android.inputmethod.latin")))
             }
-            column.addView(TextView(this@MainActivity).apply{text=diagnostics;textSize=11f;setTextIsSelectable(true)})
-            MaterialAlertDialogBuilder(this@MainActivity).setTitle("设置与诊断")
+            val diagnosticText=TextView(this@MainActivity).apply{text="正在探测 Gboard 内的模块…\n\n$diagnostics";textSize=11f;setTextIsSelectable(true)}
+            column.addView(diagnosticText)
+            MaterialAlertDialogBuilder(this@MainActivity).setTitle("设置与诊断 · v0.2.0")
                 .setView(ScrollView(this@MainActivity).apply{addView(column)}).setPositiveButton("关闭",null).show()
+            val ping=Intent("io.github.stickerbox.HOOK_PING").setPackage(BridgeProvider.GBOARD)
+                .addFlags(Intent.FLAG_RECEIVER_FOREGROUND)
+            sendOrderedBroadcast(ping,null,object:android.content.BroadcastReceiver(){
+                override fun onReceive(context:android.content.Context,intent:Intent){
+                    val result=if(resultCode==1)resultData?.take(500) ?: "模块已加载，未返回阶段"
+                        else "未探测到模块接收器：请确认 LSPosed 已启用 StickerBox、作用域已勾选 Gboard，并结束运行后重新打开 Gboard。"
+                    diagnosticText.text="$result\n\n保存的状态：\n$diagnostics"
+                }
+            },Handler(Looper.getMainLooper()),0,null,null)
         }
     }
     private fun share(s:Sticker){startActivity(Intent(this,ShareActivity::class.java).putExtra("id",s.id))}

@@ -37,58 +37,105 @@ import java.util.concurrent.Executors
 /** Only framework methods are hooked. No obfuscated Google classes or resource IDs. */
 class StickerBoxHook:IXposedHookLoadPackage {
     private val panels=WeakHashMap<InputMethodService,WeakReference<Panel>>()
+    private val inputs=WeakHashMap<InputMethodService,WeakReference<View>>()
     private val checked=mutableSetOf<String>()
     private val blocked=mutableSetOf<String>()
     private var failures=0
+    private var pingRegistered=false
     override fun handleLoadPackage(param:XC_LoadPackage.LoadPackageParam) {
-        if(param.packageName!=GBOARD || param.processName!=GBOARD)return
+        if(param.packageName!=GBOARD)return
+        XposedBridge.log("StickerBox: module entry loaded in ${param.processName}")
+        fun hook(name:String,vararg parameters:Any) {
+            try{XposedHelpers.findAndHookMethod(InputMethodService::class.java,name,*parameters)}
+            catch(t:Throwable){XposedBridge.log("StickerBox: $name hook failed (${t.javaClass.simpleName})")}
+        }
+        hook("onCreate",object:XC_MethodHook(){
+            override fun afterHookedMethod(p:MethodHookParam){
+                (p.thisObject as? InputMethodService)?.let{initialize(it)}
+            }
+        })
+        hook("setInputView",View::class.java,object:XC_MethodHook(){
+            override fun afterHookedMethod(p:MethodHookParam){
+                if(p.hasThrowable())return
+                val service=p.thisObject as? InputMethodService ?: return
+                val input=p.args[0] as? View ?: return
+                initialize(service);inputs[service]=WeakReference(input);attempt(service,input)
+            }
+        })
+        hook("showWindow",java.lang.Boolean.TYPE,object:XC_MethodHook(){
+            override fun afterHookedMethod(p:MethodHookParam){
+                val service=p.thisObject as? InputMethodService ?: return
+                initialize(service)
+                inputs[service]?.get()?.let{attempt(service,it)}
+            }
+        })
+        hook("onWindowHidden",object:XC_MethodHook(){
+            override fun afterHookedMethod(p:MethodHookParam){panels[p.thisObject as? InputMethodService]?.get()?.close()}
+        })
+        hook("onDestroy",object:XC_MethodHook(){
+            override fun beforeHookedMethod(p:MethodHookParam){
+                val service=p.thisObject as? InputMethodService ?: return
+                panels.remove(service)?.get()?.destroy();inputs.remove(service)
+            }
+        })
+    }
+    private fun initialize(service:InputMethodService) {
+        if(pingRegistered)return
         try {
-            XposedHelpers.findAndHookMethod(InputMethodService::class.java,"setInputView",View::class.java,object:XC_MethodHook(){
-                override fun afterHookedMethod(p:MethodHookParam) {
-                    if(p.hasThrowable() || failures>=3)return
-                    val service=p.thisObject as? InputMethodService ?: return
-                    val original=p.args[0] as? View ?: return
-                    worker.execute {
-                        try {
-                            val config=call(service,"config") ?: return@execute
-                            val version=service.packageManager.getPackageInfo(GBOARD,0).let{"${it.versionName} (${it.longVersionCode})"}
-                            if(!config.getBoolean("enabled"))return@execute
-                            main.post {
-                                try {
-                                    if(original.parent !is ViewGroup || panels[service]?.get()?.original===original)return@post
-                                    val guard=service.getSharedPreferences("stickerbox_guard",0)
-                                    val key="$version/${config.getLong("revision",0)}"
-                                    if(key in blocked)return@post
-                                    if(checked.add(key) && guard.getBoolean("pending",false) && guard.getString("key",null)==key) {
-                                        blocked.add(key)
-                                        event(service,"HOOK_FAILED");status(service,"安全降级：上次注入后进程提前结束。请在管理 App 重置。Gboard $version")
-                                        return@post
-                                    }
-                                    guard.edit().putString("key",key).putBoolean("pending",true).commit()
-                                    val panel=Panel(service,original)
-                                    panels.remove(service)?.get()?.destroy()
-                                    panel.install()
-                                    panels[service]=WeakReference(panel)
-                                    status(service,"已注入；Framework setInputView；Gboard $version；Android ${android.os.Build.VERSION.SDK_INT}；真机功能仍需核验")
-                                    main.postDelayed({guard.edit().putBoolean("pending",false).apply()},15_000)
-                                } catch(_:Throwable) {failures++;event(service,"HOOK_FAILED")}
-                            }
-                        } catch(_:Throwable){/* Provider missing/disabled: leave the original keyboard untouched. */}
-                    }
+            val receiver=object:android.content.BroadcastReceiver(){
+                override fun onReceive(context:Context,intent:Intent){
+                    if(intent.action==PING){resultCode=1;resultData=phase.take(500)}
                 }
-            })
-            XposedHelpers.findAndHookMethod(InputMethodService::class.java,"onWindowHidden",object:XC_MethodHook(){
-                override fun afterHookedMethod(p:MethodHookParam){panels[p.thisObject as? InputMethodService]?.get()?.close()}
-            })
-            XposedHelpers.findAndHookMethod(InputMethodService::class.java,"onDestroy",object:XC_MethodHook(){
-                override fun beforeHookedMethod(p:MethodHookParam){panels.remove(p.thisObject as? InputMethodService)?.get()?.destroy()}
-            })
-        } catch(_:Throwable){XposedBridge.log("StickerBox: framework hook installation failed; keyboard unchanged")}
+            }
+            val filter=android.content.IntentFilter(PING)
+            val context=service.applicationContext
+            if(android.os.Build.VERSION.SDK_INT>=33)context.registerReceiver(receiver,filter,Context.RECEIVER_EXPORTED)
+            else {@Suppress("DEPRECATION") context.registerReceiver(receiver,filter)}
+            pingRegistered=true
+            status(service,"模块已加载；输入法服务已创建；等待注入")
+        }catch(t:Throwable){phase="模块已加载；诊断接收器失败 (${t.javaClass.simpleName})";XposedBridge.log("StickerBox: $phase")}
+    }
+    private fun attempt(service:InputMethodService,original:View) {
+        if(failures>=3){status(service,"安全降级：本进程连续注入失败，请重启 Gboard 后查看 LSPosed 日志");return}
+        worker.execute {
+            try {
+                val config=call(service,"config") ?: error("No bridge response")
+                val version=service.packageManager.getPackageInfo(GBOARD,0).let{"${it.versionName} (${it.longVersionCode})"}
+                if(!config.getBoolean("enabled")) {status(service,"模块已加载；管理 App 中的面板开关关闭；Gboard $version");return@execute}
+                main.post {
+                    try {
+                        if(panels[service]?.get()?.let{it.original===original && !it.disposed}==true)return@post
+                        val guard=service.getSharedPreferences("stickerbox_guard",0)
+                        val key="$version/${config.getLong("revision",0)}"
+                        if(key in blocked)return@post
+                        if(checked.add(key) && guard.getBoolean("pending",false) && guard.getString("key",null)==key) {
+                            blocked.add(key);event(service,"HOOK_FAILED")
+                            status(service,"安全降级：上次注入后进程提前结束。请在管理 App 重置。Gboard $version")
+                            return@post
+                        }
+                        guard.edit().putString("key",key).putBoolean("pending",true).commit()
+                        panels.remove(service)?.get()?.destroy()
+                        val panel=Panel(service,original)
+                        if(!panel.install()) {
+                            guard.edit().putBoolean("pending",false).apply()
+                            status(service,"模块已加载；尚未匹配可见键盘内容区域；Gboard $version")
+                            return@post
+                        }
+                        panels[service]=WeakReference(panel)
+                        status(service,"已注入键盘内容区域；Gboard $version；Android ${android.os.Build.VERSION.SDK_INT}")
+                        main.postDelayed({guard.edit().putBoolean("pending",false).apply()},15_000)
+                    }catch(t:Throwable){failures++;event(service,"HOOK_FAILED");status(service,"注入失败 (${t.javaClass.simpleName})；请查看 LSPosed 日志")}
+                }
+            }catch(t:Throwable){
+                phase="模块已加载；管理 App 通信失败 (${t.javaClass.simpleName})；请先打开 StickerBox 后重试"
+                XposedBridge.log("StickerBox: $phase")
+            }
+        }
     }
     private class Panel(val service:InputMethodService,val original:View) {
         private val root=LinearLayout(service).apply{orientation=LinearLayout.VERTICAL;tag=TAG;setBackgroundColor(Color.rgb(238,242,237))}
         private val toolbar=LinearLayout(service).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL}
-        private val frame=FrameLayout(service)
+        private var mount:KeyboardMount.Mount?=null
         private val body=LinearLayout(service).apply{orientation=LinearLayout.VERTICAL;setBackgroundColor(Color.rgb(238,242,237));visibility=View.GONE}
         private val grid=GridView(service).apply{numColumns=4;verticalSpacing=dp(4);horizontalSpacing=dp(4)}
         private val label=TextView(service).apply{setTextColor(Color.DKGRAY);textSize=12f}
@@ -100,19 +147,16 @@ class StickerBoxHook:IXposedHookLoadPackage {
         private var categories=emptyList<String>()
         private var popup:PopupWindow?=null
         private var observer:ContentObserver?=null
-        private var disposed=false
+        var disposed=false
+            private set
         private fun dp(n:Int)=(n*service.resources.displayMetrics.density).toInt()
         private fun button(text:String,action:()->Unit)=Button(service).apply{
             this.text=text;textSize=12f;isAllCaps=false;minWidth=0;minimumWidth=0
             setPadding(dp(6),0,dp(6),0);setOnClickListener{safe(action)}
         }
         private fun safe(action:()->Unit){try{action()}catch(_:Throwable){event(service,"HOOK_FAILED");close()}}
-        fun install() {
-            val parent=original.parent as? ViewGroup ?: return
-            require(parent.tag!=TAG)
-            val index=parent.indexOfChild(original)
-            val layout=original.layoutParams
-            toolbar.addView(button("StickerBox"){if(body.visibility==View.VISIBLE)close()else{body.visibility=View.VISIBLE;original.visibility=View.INVISIBLE;load()}})
+        fun install():Boolean {
+            toolbar.addView(button("StickerBox"){if(body.visibility==View.VISIBLE)close()else{body.visibility=View.VISIBLE;load()}})
             toolbar.addView(button("键盘"){close()})
             toolbar.addView(button("管理 / 搜索"){service.startActivity(Intent().setClassName("io.github.stickerbox","io.github.stickerbox.ui.MainActivity").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))})
             root.addView(toolbar,LinearLayout.LayoutParams(-1,dp(40)))
@@ -150,18 +194,7 @@ class StickerBoxHook:IXposedHookLoadPackage {
                     return cell
                 }
             }
-            frame.addView(body,FrameLayout.LayoutParams(-1,-1))
-            root.addView(frame,LinearLayout.LayoutParams(-1,-2))
-            parent.removeViewAt(index)
-            try {
-                frame.addView(original,0,FrameLayout.LayoutParams(-1,-2))
-                parent.addView(root,index,layout)
-            } catch(t:Throwable) {
-                (original.parent as? ViewGroup)?.removeView(original)
-                (root.parent as? ViewGroup)?.removeView(root)
-                parent.addView(original,index.coerceAtMost(parent.childCount),layout)
-                throw t
-            }
+            mount=KeyboardMount.attach(original,root,body,dp(40)) ?: return false
             observer=object:ContentObserver(main){override fun onChange(selfChange:Boolean){worker.execute{
                 val enabled=try{call(service,"config")?.getBoolean("enabled")==true}catch(_:Throwable){false}
                 main.post{if(!enabled){close();toolbar.visibility=View.GONE}else toolbar.visibility=View.VISIBLE}
@@ -169,8 +202,9 @@ class StickerBoxHook:IXposedHookLoadPackage {
             runCatching{service.contentResolver.registerContentObserver(BASE,true,observer!!)}
             root.addOnAttachStateChangeListener(object:View.OnAttachStateChangeListener {
                 override fun onViewAttachedToWindow(v:View)=Unit
-                override fun onViewDetachedFromWindow(v:View){destroy()}
+                override fun onViewDetachedFromWindow(v:View){main.post{if(!root.isAttachedToWindow)destroy()}}
             })
+            return true
         }
         private fun load() {
             val token=++generation
@@ -265,19 +299,21 @@ class StickerBoxHook:IXposedHookLoadPackage {
             column.addView(button("取消"){w.dismiss()})
             popup?.dismiss();popup=w;w.showAtLocation(root,Gravity.CENTER,0,0)
         }
-        fun close(){popup?.dismiss();popup=null;body.visibility=View.GONE;original.visibility=View.VISIBLE}
-        fun destroy(){disposed=true;generation++;close();observer?.let{runCatching{service.contentResolver.unregisterContentObserver(it)}};observer=null}
+        fun close(){popup?.dismiss();popup=null;body.visibility=View.GONE}
+        fun destroy(){if(disposed)return;disposed=true;generation++;close();observer?.let{runCatching{service.contentResolver.unregisterContentObserver(it)}};observer=null;mount?.remove();mount=null}
     }
     companion object {
         private const val GBOARD="com.google.android.inputmethod.latin"
         private const val TAG="stickerbox_framework_container"
+        private const val PING="io.github.stickerbox.HOOK_PING"
+        @Volatile private var phase="模块入口已加载；等待输入法服务"
         private val BASE=Uri.parse("content://io.github.stickerbox.bridge")
         private val worker=Executors.newSingleThreadExecutor()
         private val main=Handler(Looper.getMainLooper())
         private fun call(context:Context,method:String,arg:String?=null,extras:Bundle?=null)=context.contentResolver.call(BASE,method,arg,extras)
         private fun media(id:String)=BASE.buildUpon().appendPath("media").appendPath(id).build()
         private fun event(context:Context,code:String){worker.execute{runCatching{call(context,"event",code)}}}
-        private fun status(context:Context,text:String){worker.execute{runCatching{call(context,"heartbeat",text)}}}
+        private fun status(context:Context,text:String){phase=text;XposedBridge.log("StickerBox: $text");worker.execute{runCatching{call(context,"heartbeat",text)}}}
     }
 }
 

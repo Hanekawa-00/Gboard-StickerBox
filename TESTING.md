@@ -4,7 +4,7 @@
 
 本文件随源码交付。**GitHub Actions 的具体 commit、绿色结果与报告才是编译/单元测试/Lint 通过的证据**；工作流文件存在不代表已运行。未连接用户的 Android 16 Root 真机，下方真机场景仍待验证；远程 Android 16 模拟器结果见下节。
 
-## 已完成的实际验证（2026-11-04）
+## v0.1 已完成的实际验证（2026-11-04，历史结果）
 
 被测代码 commit：`0a082b4b04c509af3ac90f7f02259ff8bd02e66b`。
 
@@ -32,9 +32,13 @@
 
 本节是构建完成后的文档补记，不改变已测试的应用代码。产物中的 BUILD-RESULTS.md 记录构建 job 的结果，模拟器测试结果见独立报告。
 
+v0.2 增加 RECEIVE_BOOT_COMPLETED 权限，仅用于重建对 Gboard 的固定非私有引导 URI 授权；FileProvider 新增 files/bridge-bootstrap/ 这个只含 marker.txt 的目录，仍不暴露表情源目录或数据库。诊断 ping 只返回阶段及版本元数据，不提供配置写入或表情访问功能。
+
 CI 工作流 `.github/workflows/android.yml` 执行：结构检查 → Debug 构建 → JUnit → Android Lint → 最终 Manifest / APK 签名 / 打包入口检查 → 上传交付物及报告。失败时查看 Actions 日志，不生成伪 APK。测试失败不能被忽略。交付包的 BUILD-RESULTS.md 记录该次构建 commit、运行链接和单元测试计数。
 
 另一个 `emulator-smoke` job 会在 Android 16 / API 36 x86_64 模拟器运行三个 instrumentation 测试：管理 App 启动；SQLite 索引、伪扩展名导入、去重、搜索、备份与恢复；GIF 原始字节与系统动画解码、生成导出 URI 的本 UID 可读性。测试后重新安装 App，捕获管理界面截图，并检查 shell UID 访问 BridgeProvider / 未授权 FileProvider URI 被拒绝。它不验证普通应用 UID 间的授权转授，也没有 Root、LSPosed、Gboard 或微信。报告和截图在 `android16-emulator-reports`；必须检查 job 实际结果，不能因配置存在就声称通过。测试仅用于可丢弃模拟器，会清空测试表情库。
+
+v0.2 新增三个独立的 Android View 层级测试，验证全屏根视图下工具条位于底部键盘区域、原生父子关系不变、未知/歧义结构不修改，以及一个引导 FileProvider 范围测试。它们是合成视图测试，不是 Gboard 或 LSPosed 真机测试。v0.2 结果以对应工作流为准。
 
 单元测试 `MediaRulesTest`：七项 JUnit 测试覆盖媒体魔数、截断/伪装输入、ZIP 路径穿越、真实解压字节上限、MIME 匹配及不静默扁平化 GIF。它们不验证 Android 解码器、Binder 权限、数据库或 Gboard 运行时。
 
@@ -76,7 +80,7 @@ CI 工作流 `.github/workflows/android.yml` 执行：结构检查 → Debug 构
 
 - 模块无 INTERNET、存储大范围访问、AccessibilityService 或 root shell 请求。
 - BridgeProvider 虽导出，但每个入口检查 Binder UID（自身或 Gboard）。应使用独立测试 App 验证其他 UID 的 call/openFile/query 均拒绝；adb shell 的拒绝不是所有权限场景的充分证据。
-- FileProvider 仅暴露 outgoing cache，非导出、只授予读；检查目标 UID 能读取被选文件，不能访问数据库/源目录/未选文件，无法写入。
+- FileProvider 仅暴露 outgoing cache 和固定引导标记目录，非导出、只授予读；检查目标 UID 能读取被选文件，不能访问数据库/源目录/未选文件，无法写入。
 - prepare 对模块调用清除 Binder identity，再由模块 UID 生成 URI 授权及不可变 PendingIntent；私有分享 Activity 不能被普通 App 直接启动。
 - 明确授权在存活进程 10 分钟后撤销。**进程提前死亡时，Handler 定时任务不会执行，陈旧导出在下次 prepare 才清理。** 接收端已复制的文件无法撤回；需要更严格保证时后续加入持久化清理任务。
 - 检查日志仅包含固定事件码、版本和心跳；不得出现输入文本、密码、聊天内容或剪贴板历史。剪贴板回退只写入用户选中的一张图片。

@@ -1,4 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <queries><package android:name="com.google.android.inputmethod.latin" /></queries>
     <application android:allowBackup="false" android:label="Gboard StickerBox"
         android:icon="@drawable/ic_stickerbox" android:theme="@style/Theme.StickerBox"
@@ -14,6 +15,9 @@
             </intent-filter>
         </activity>
         <activity android:name=".ui.ShareActivity" android:exported="false" />
+        <receiver android:name=".data.BootReceiver" android:exported="false">
+            <intent-filter><action android:name="android.intent.action.BOOT_COMPLETED" /></intent-filter>
+        </receiver>
         <provider android:name=".data.BridgeProvider" android:authorities="io.github.stickerbox.bridge"
             android:exported="true" android:grantUriPermissions="false" />
         <provider android:name="androidx.core.content.FileProvider"

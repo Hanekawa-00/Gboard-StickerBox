@@ -64,3 +64,12 @@ InputConnection：https://developer.android.com/reference/android/view/inputmeth
 导入器不依赖 FunBox 的名称/扩展名，读取 PNG/JPEG/GIF/WebP/ISO-BMFF HEIF 文件头。原 GIF/WebP 按字节保留，HEIF 经系统解码转 PNG，ZIP 层级末级文件夹作为分类。内容摘要去重，不使用原路径进行文件写入。普通原格式导出库可以用此方式迁移；加密数据、数据库资源映射、私有容器及嵌套归档尚不支持。
 
 后续拿到附件应先做 SHA-256、Manifest/证书、DEX 字符串与调用链、缓存文件魔数/数据库 schema/资源映射分析。网络验证须分别记录时间、DNS/TLS/HTTP 状态及无需鉴权的请求；不把 HTTP 200 或字符串命中等同完整 API 可用。只复用可互操作的数据格式，不将反编译源码视为可复制授权。
+
+
+## 2026-11-04：用户设备反馈后的 v0.2 修订
+
+用户截图显示 Gboard `18.4.1.985164140-release-arm64-v8a`，原生键盘可用，但 StickerBox 没有按钮，状态为“无心跳”。这不足以区分 LSPosed 未加载与 IPC 失败。进一步阅读参考项目的当前实现，发现全屏 InputView 和实际键盘区域的高度可以不同，外层包裹可能把工具栏放到可见窗口之外；Gboard+ 也针对包可见性使用独立通信途径。
+
+本项目独立实现了有边界的视图结构遍历：只接受唯一具有 keyboard-base-area 语义标记的 FrameLayout 及其垂直内容列；把自己的工具条插入内容列，在同一区域增加可关闭的不透明面板覆盖层，不移动原生视图。仅引用可观测的结构标记，不复制参考项目源代码，不依赖混淆类名；找不到或有歧义则上报状态并保持原键盘。
+
+同时增加 InputMethodService.onCreate / showWindow 生命周期探测、固定诊断 ping、异常类型日志，以及固定非私有标记文件的 URI 引导授权。以上为可验证的代码修订，仍未取得用户手机 LSPosed 日志，不能宣称已确定该手机的最终原因或已通过真机验证。

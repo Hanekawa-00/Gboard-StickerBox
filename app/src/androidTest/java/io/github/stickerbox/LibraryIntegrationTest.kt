@@ -11,6 +11,7 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import io.github.stickerbox.data.BridgeProvider
+import io.github.stickerbox.data.BridgeBootstrap
 import io.github.stickerbox.data.Importer
 import io.github.stickerbox.data.LibraryDb
 import io.github.stickerbox.ui.MainActivity
@@ -83,5 +84,13 @@ class LibraryIntegrationTest {
         ActivityScenario.launch(MainActivity::class.java).use{scenario->
             scenario.onActivity{activity->assertFalse(activity.isFinishing);assertNotNull(activity.window.decorView)}
         }
+    }
+    @Test fun bootstrapMarkerDoesNotExposePrivateLibraryFiles() {
+        val uri=BridgeBootstrap.markerUri(context)
+        context.contentResolver.openInputStream(uri)!!.use{assertEquals("Gboard StickerBox bridge\n",it.readBytes().toString(Charsets.UTF_8))}
+        try {
+            FileProvider.getUriForFile(context,"io.github.stickerbox.files",context.getDatabasePath("library.db"))
+            fail("Private database must not be inside any exported FileProvider root")
+        } catch(_:IllegalArgumentException){ /* Correctly outside both tightly scoped roots. */ }
     }
 }

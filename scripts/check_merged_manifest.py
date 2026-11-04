@@ -6,7 +6,7 @@ r=ET.parse(sys.argv[1]).getroot()
 assert r.get('package')=='io.github.stickerbox'
 permissions=[p.get(ns+'name') for p in r.findall('uses-permission')]
 private_receiver='io.github.stickerbox.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION'
-assert set(permissions)<={private_receiver}, 'Unexpected merged permissions: '+str(permissions)
+assert set(permissions)<={private_receiver,'android.permission.RECEIVE_BOOT_COMPLETED'}, 'Unexpected merged permissions: '+str(permissions)
 if private_receiver in permissions:
     definition=next(p for p in r.findall('permission') if p.get(ns+'name')==private_receiver)
     protection=definition.get(ns+'protectionLevel')

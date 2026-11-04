@@ -8,7 +8,7 @@ import sys
 root=Path(__file__).resolve().parents[1]
 ns='{http://schemas.android.com/apk/res/android}'
 manifest=ET.parse(root/'app/src/main/AndroidManifest.xml').getroot()
-assert not manifest.findall('uses-permission'), 'MVP must not request Internet, storage or root permissions'
+assert {p.get(ns+'name') for p in manifest.findall('uses-permission')}=={'android.permission.RECEIVE_BOOT_COMPLETED'}, 'Only reboot bootstrap permission is expected'
 app=manifest.find('application')
 assert app.get(ns+'allowBackup')=='false'
 providers={p.get(ns+'name'):p for p in app.findall('provider')}
@@ -20,7 +20,7 @@ assert bridge.get(ns+'grantUriPermissions')=='false'
 share=next(x for x in app.findall('activity') if x.get(ns+'name')=='.ui.ShareActivity')
 assert share.get(ns+'exported')=='false'
 paths=ET.parse(root/'app/src/main/res/xml/file_paths.xml').getroot()
-assert len(paths)==1 and paths[0].tag=='cache-path' and paths[0].get('path')=='outgoing/'
+assert {(p.tag,p.get('path')) for p in paths}=={('cache-path','outgoing/'),('files-path','bridge-bootstrap/')}
 entry=(root/'app/src/main/assets/xposed_init').read_text().strip()
 assert entry=='io.github.stickerbox.hook.StickerBoxHook'
 assert (root/'app/src/main/java'/Path(*entry.split('.'))).with_suffix('.kt').is_file()
