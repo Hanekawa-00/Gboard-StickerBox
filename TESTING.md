@@ -2,7 +2,35 @@
 
 ## 状态原则
 
-本文件随源码交付。**GitHub Actions 的具体 commit、绿色结果与报告才是编译/单元测试/Lint 通过的证据**；工作流文件存在不代表已运行。当前会话未连接任何 Android/Root 设备，所有以下设备场景均为待验证。
+本文件随源码交付。**GitHub Actions 的具体 commit、绿色结果与报告才是编译/单元测试/Lint 通过的证据**；工作流文件存在不代表已运行。未连接用户的 Android 16 Root 真机，下方真机场景仍待验证；远程 Android 16 模拟器结果见下节。
+
+## 已完成的实际验证（2026-11-04）
+
+被测代码 commit：`0a082b4b04c509af3ac90f7f02259ff8bd02e66b`。
+
+工作流：https://github.com/Hanekawa-00/Gboard-StickerBox/actions/runs/41841680732 ，`build` 与 `emulator-smoke` 两个 job 均成功。
+
+| 检查 | 实际结果 |
+|---|---|
+| Debug APK / Kotlin 编译 | 通过，JDK 17 / Gradle 8.13 / compileSdk 36 |
+| 核心规则 JUnit | 7 项通过 |
+| Android Lint | 通过阻断检查；不代表零 warning，见报告 |
+| 原 Manifest / 最终 APK Manifest | 通过；无网络、广泛存储、root 权限申请，仅 AndroidX 自身 signature 接收器权限 |
+| Xposed assets 入口 / DEX | 打包存在，结构检查通过；未验证 LSPosed 实际加载 |
+| APK 签名 | apksigner 验证通过，v2 签名 |
+| Android 16 / API 36 x86_64 instrumentation | 3 项通过：管理界面启动；导入/去重/搜索/SQLite/备份往返；GIF 字节保留与动画解码/本 UID 导出读取 |
+| 独立 adb 安装 / Activity 启动 | 安装 Success，启动 Status: ok |
+| shell UID 访问限制 | Bridge call 与未授权 FileProvider read 均抛 SecurityException；不替代普通目标 App 间转授测试 |
+| 界面截图 | 已生成 manager-emulator.png，见模拟器报告 |
+| Android 16 Root / LSPosed / Gboard / 微信 / Telegram / QQ | **未测试** |
+
+交付包：https://github.com/Hanekawa-00/Gboard-StickerBox/actions/runs/41841680732/artifacts/13328333540
+
+构建报告：https://github.com/Hanekawa-00/Gboard-StickerBox/actions/runs/41841680732/artifacts/13328288620
+
+模拟器报告与截图：https://github.com/Hanekawa-00/Gboard-StickerBox/actions/runs/41841680732/artifacts/13328164341
+
+本节是构建完成后的文档补记，不改变已测试的应用代码。产物中的 BUILD-RESULTS.md 记录构建 job 的结果，模拟器测试结果见独立报告。
 
 CI 工作流 `.github/workflows/android.yml` 执行：结构检查 → Debug 构建 → JUnit → Android Lint → 最终 Manifest / APK 签名 / 打包入口检查 → 上传交付物及报告。失败时查看 Actions 日志，不生成伪 APK。测试失败不能被忽略。交付包的 BUILD-RESULTS.md 记录该次构建 commit、运行链接和单元测试计数。
 
