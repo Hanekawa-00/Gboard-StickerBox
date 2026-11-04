@@ -83,7 +83,9 @@ jobs:
           disable-animations: true
           script: |
             bash ./gradlew --no-daemon --stacktrace :app:connectedDebugAndroidTest
+            adb install -r app/build/outputs/apk/debug/app-debug.apk
             adb shell am start -W -n io.github.stickerbox/.ui.MainActivity
+            python3 scripts/check_emulator_permissions.py
             adb exec-out screencap -p > app/build/reports/manager-emulator.png
       - name: Upload emulator reports
         if: always()

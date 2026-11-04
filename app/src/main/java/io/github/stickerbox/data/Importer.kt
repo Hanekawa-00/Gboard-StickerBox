@@ -65,7 +65,7 @@ class Importer(private val context:Context) {
                 if(entry.name=="library.json") {
                     require(manifest==null){"Duplicate backup manifest"}
                     val out=java.io.ByteArrayOutputStream()
-                    account(MediaRules.copyBounded(zip,out,4L*1024*1024))
+                    account(MediaRules.copyBounded(zip,out,16L*1024*1024))
                     manifest=out.toString("UTF-8")
                 } else {
                     val normal=entry.name.replace('\\','/')

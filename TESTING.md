@@ -6,7 +6,7 @@
 
 CI 工作流 `.github/workflows/android.yml` 执行：结构检查 → Debug 构建 → JUnit → Android Lint → 最终 Manifest / APK 签名 / 打包入口检查 → 上传交付物及报告。失败时查看 Actions 日志，不生成伪 APK。测试失败不能被忽略。交付包的 BUILD-RESULTS.md 记录该次构建 commit、运行链接和单元测试计数。
 
-另一个 `emulator-smoke` job 会在 Android 16 / API 36 x86_64 模拟器运行三个 instrumentation 测试：管理 App 启动；SQLite 索引、伪扩展名导入、去重、搜索、备份与恢复；GIF 原始字节与系统动画解码、生成导出 URI 的本 UID 可读性。它不验证不同 UID 的授权，也没有 Root、LSPosed、Gboard 或微信。报告和截图在 `android16-emulator-reports`；必须检查 job 实际结果，不能因配置存在就声称通过。测试仅用于可丢弃模拟器，会清空测试表情库。
+另一个 `emulator-smoke` job 会在 Android 16 / API 36 x86_64 模拟器运行三个 instrumentation 测试：管理 App 启动；SQLite 索引、伪扩展名导入、去重、搜索、备份与恢复；GIF 原始字节与系统动画解码、生成导出 URI 的本 UID 可读性。测试后重新安装 App，捕获管理界面截图，并检查 shell UID 访问 BridgeProvider / 未授权 FileProvider URI 被拒绝。它不验证普通应用 UID 间的授权转授，也没有 Root、LSPosed、Gboard 或微信。报告和截图在 `android16-emulator-reports`；必须检查 job 实际结果，不能因配置存在就声称通过。测试仅用于可丢弃模拟器，会清空测试表情库。
 
 单元测试 `MediaRulesTest`：七项 JUnit 测试覆盖媒体魔数、截断/伪装输入、ZIP 路径穿越、真实解压字节上限、MIME 匹配及不静默扁平化 GIF。它们不验证 Android 解码器、Binder 权限、数据库或 Gboard 运行时。
 
