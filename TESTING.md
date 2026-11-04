@@ -4,6 +4,18 @@
 
 本文件随源码交付。**GitHub Actions 的具体 commit、绿色结果与报告才是编译/单元测试/Lint 通过的证据**；工作流文件存在不代表已运行。未连接用户的 Android 16 Root 真机，下方真机场景仍待验证；远程 Android 16 模拟器结果见下节。
 
+## v0.2 最终修订的本地验证（2026-11-04）
+
+代码 commit：`f4d1afd100afae6d0abf49f6cc5840c1eac38d3d`。
+
+- 本地使用 JDK 21、Gradle 8.13、Android SDK 36，Debug APK 构建成功。
+- 7 项核心 JUnit：0 failures / 0 errors；Android Lint 通过阻断检查。
+- Android instrumentation 测试 APK 编译成功；签名、打包 Xposed 入口与最终 Manifest 检查通过。
+- 本地 APK 为 v0.2.0-mvp / versionCode 2，v2 签名。
+- 最终修订增加了显式面板高度约束及回归断言。截至本次交付时，其完整模拟器任务仍在 GitHub 排队：https://github.com/Hanekawa-00/Gboard-StickerBox/actions/runs/41862521466 。不能把测试 APK 编译成功记成用例已执行。
+- 前一修订 `2e2142717959d132c50f6d7d548903df2a6f3042` 已在 Android 16 模拟器执行 7 项 instrumentation 测试并通过，包括合成视图挂载、触摸隔离、导入备份及 GIF 检查；最终高度断言是在该次之后补充的。历史运行：https://github.com/Hanekawa-00/Gboard-StickerBox/actions/runs/41861001911 。
+- 用户提供的 Gboard 版本为 18.4.1.985164140；没有连接该手机，LSPosed 是否加载及实际入口显示仍待用户反馈。
+
 ## v0.1 已完成的实际验证（2026-11-04，历史结果）
 
 被测代码 commit：`0a082b4b04c509af3ac90f7f02259ff8bd02e66b`。
@@ -36,7 +48,7 @@ v0.2 增加 RECEIVE_BOOT_COMPLETED 权限，仅用于重建对 Gboard 的固定�
 
 CI 工作流 `.github/workflows/android.yml` 执行：结构检查 → Debug 构建 → JUnit → Android Lint → 最终 Manifest / APK 签名 / 打包入口检查 → 上传交付物及报告。失败时查看 Actions 日志，不生成伪 APK。测试失败不能被忽略。交付包的 BUILD-RESULTS.md 记录该次构建 commit、运行链接和单元测试计数。
 
-另一个 `emulator-smoke` job 会在 Android 16 / API 36 x86_64 模拟器运行三个 instrumentation 测试：管理 App 启动；SQLite 索引、伪扩展名导入、去重、搜索、备份与恢复；GIF 原始字节与系统动画解码、生成导出 URI 的本 UID 可读性。测试后重新安装 App，捕获管理界面截图，并检查 shell UID 访问 BridgeProvider / 未授权 FileProvider URI 被拒绝。它不验证普通应用 UID 间的授权转授，也没有 Root、LSPosed、Gboard 或微信。报告和截图在 `android16-emulator-reports`；必须检查 job 实际结果，不能因配置存在就声称通过。测试仅用于可丢弃模拟器，会清空测试表情库。
+另一个 `emulator-smoke` job 会在 Android 16 / API 36 x86_64 模拟器运行 instrumentation 测试：管理 App 启动；SQLite 索引、伪扩展名导入、去重、搜索、备份与恢复；GIF 原始字节与系统动画解码、生成导出 URI 的本 UID 可读性。测试后重新安装 App，捕获管理界面截图，并检查 shell UID 访问 BridgeProvider / 未授权 FileProvider URI 被拒绝。它不验证普通应用 UID 间的授权转授，也没有 Root、LSPosed、Gboard 或微信。报告和截图在 `android16-emulator-reports`；必须检查 job 实际结果，不能因配置存在就声称通过。测试仅用于可丢弃模拟器，会清空测试表情库。
 
 v0.2 新增三个独立的 Android View 层级测试，验证全屏根视图下工具条位于底部键盘区域、原生父子关系不变、未知/歧义结构不修改，以及一个引导 FileProvider 范围测试。它们是合成视图测试，不是 Gboard 或 LSPosed 真机测试。v0.2 结果以对应工作流为准。
 
