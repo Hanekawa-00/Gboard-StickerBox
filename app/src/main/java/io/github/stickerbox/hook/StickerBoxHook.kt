@@ -90,10 +90,16 @@ class StickerBoxHook:IXposedHookLoadPackage {
             val filter=android.content.IntentFilter(PING)
             val context=service.applicationContext
             if(android.os.Build.VERSION.SDK_INT>=33)context.registerReceiver(receiver,filter,Context.RECEIVER_EXPORTED)
-            else {@Suppress("DEPRECATION") context.registerReceiver(receiver,filter)}
+            else registerLegacyPing(context,receiver,filter)
             pingRegistered=true
             status(service,"模块已加载；输入法服务已创建；等待注入")
         }catch(t:Throwable){phase="模块已加载；诊断接收器失败 (${t.javaClass.simpleName})";XposedBridge.log("StickerBox: $phase")}
+    }
+    @android.annotation.SuppressLint("UnspecifiedRegisterReceiverFlag")
+    private fun registerLegacyPing(context:Context,receiver:android.content.BroadcastReceiver,filter:android.content.IntentFilter) {
+        // Export flags exist only on API 33+. This helper cannot run on those versions.
+        check(android.os.Build.VERSION.SDK_INT<33)
+        @Suppress("DEPRECATION") context.registerReceiver(receiver,filter)
     }
     private fun attempt(service:InputMethodService,original:View) {
         if(failures>=3){status(service,"安全降级：本进程连续注入失败，请重启 Gboard 后查看 LSPosed 日志");return}
